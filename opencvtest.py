@@ -4,6 +4,7 @@ import argparse
 import imutils
 import cv2
 import datetime
+import RPi.GPIO as IO
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -32,14 +33,39 @@ height, width, channels = frame.shape
 meshW = 3
 meshH = 3
 
+def inflate(pin,onOff):
+    IO.output(pin,onOff)
+    
+def deflate(pin,onOff):
+    IO.output(pin,onOff)
+
 #width and height of every cell in grid
 meshUWidth = width // meshW
 meshUHeight = height // meshH
+onPinList = [35,37,29,31,33,7,3,11,15,19,21,23]
+offPinList = [36,38,26,32,40,8,5,12,16,18,22,24]
 
 onPinDict = {}
 offPinDict = {}
+
 onOffDict = {}
-gridOnDict = {}
+
+gridOnDict = {"00" : [21,23,11], "01" : [19,21,3], "02": [15,19,7],
+              "10" : [33,21,23], "11" : [31,19,21], "12" : [29,15,19],
+              "20" : [37,33], "21" : [35,37,31], "22" : [35,29]}
+
+for pin in onPinList:
+    onPinDict[pin] = [False,datetime.datetime.now()]
+for pin in offPinList:
+    offPinDict[pin] = [False,datetime.datetime.now()]
+for i,j in zip(onPinList,offPinList):
+    onOffDict[i] = j
+
+
+    
+print (onOffDict)
+
+
 
 
 while True:
@@ -106,8 +132,26 @@ while True:
                 if any(check):
                     cv2.circle(frame, ((minX + maxX)/2, (minY + maxY)/2),5, (0,255,0),-1)
                     detectMatrix[h][w] = 1
-        print detectMatrix
-                    
+        toInflate = []
+        for i,row in enumerate(detectMatrix):
+            for j,cell in enumerate(row):
+                if cell == 1:
+                    toInflatePins = gridOnDict[str(i)+str(j)]
+                    for pin in toInflatePins:
+                        if pin not in toInflate:
+                            toInflate.append(pin)
+        toDeflate = []
+        for pin in toInflate:
+            pinStatus = onPinDict[pin]
+            delta = datetime.datetime.now() - pinStatus[1]
+            if pinStatus[0] == False and delta.seconds > 5:
+                onPinDict[pin][0] = True
+                onPinDict[pin][1] = datetime.datetime.now()
+                inflate(pin,False)
+            if (onOffDict[pin] not in toDeflate):
+                toDeflate.append(onOffDict[pin])
+##        
+            
 
     pts.appendleft(center)
 
