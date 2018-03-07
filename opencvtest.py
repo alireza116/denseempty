@@ -3,6 +3,7 @@ import numpy as np
 import argparse
 import imutils
 import cv2
+import datetime
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -12,13 +13,13 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
                 help="max buffer size")
 args = vars(ap.parse_args())
 
-redLower = (169, 50, 50)
-redUpper = (189,255,255)
+redLower = (0, 50, 50)
+redUpper = (10, 255, 255)
+
 pts = deque(maxlen=args["buffer"])
 
 if not args.get("video", False):
     camera = cv2.VideoCapture(0)
-
 # otherwise, grab a reference to the video file
 else:
     camera = cv2.VideoCapture(args["video"])
@@ -27,14 +28,19 @@ else:
 
 height, width, channels = frame.shape
 
+# meshW is number of grid in x direction and meshH is number of grid in H direction
 meshW = 3
 meshH = 3
 
+#width and height of every cell in grid
 meshUWidth = width // meshW
 meshUHeight = height // meshH
 
-print(meshUWidth)
-print(meshUHeight)
+onPinDict = {}
+offPinDict = {}
+onOffDict = {}
+gridOnDict = {}
+
 
 while True:
     # grab the current frame
@@ -78,10 +84,6 @@ while True:
     centroids = []
     # only proceed if at least one contour was found
     if len(cnts) > 0:
-        # find the largest contour in the mask, then use
-        # it to compute the minimum enclosing circle and
-        # centroid
-        # c = max(cnts, key=cv2.contourArea)
         for c in cnts:
             ((x, y), radius) = cv2.minEnclosingCircle(c)
             if radius > 0.2:
@@ -91,7 +93,8 @@ while True:
                 cv2.circle(frame, (int(x), int(y)), int(radius),
                            (0, 255, 255), 2)
                 cv2.circle(frame, center, 5, (0, 0, 255), -1)
-
+        detectMatrix = [[0]*meshH for i in range(meshW)]
+##        print detectMatrix
         for w in range(meshW):
             for h in range(meshH):
                 minX = w * meshUWidth
@@ -102,35 +105,12 @@ while True:
 
                 if any(check):
                     cv2.circle(frame, ((minX + maxX)/2, (minY + maxY)/2),5, (0,255,0),-1)
+                    detectMatrix[h][w] = 1
+        print detectMatrix
                     
 
-
-            # print(center)
-
-        # # only proceed if the radius meets a minimum size
-        # if radius > 10:
-        #     # draw the circle and centroid on the frame,
-        #     # then update the list of tracked points
-        #     cv2.circle(frame, (int(x), int(y)), int(radius),
-        #                (0, 255, 255), 2)
-        #     cv2.circle(frame, center, 5, (0, 0, 255), -1)
-
-    # update the points queue
     pts.appendleft(center)
 
-    # # loop over the set of tracked points
-    # for i in range(1, len(pts)):
-    #     # if either of the tracked points are None, ignore
-    #     # them
-    #     if pts[i - 1] is None or pts[i] is None:
-    #         continue
-    #
-    #     # otherwise, compute the thickness of the line and
-    #     # draw the connecting lines
-    #     thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
-    #     cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
-
-    # show the frame to our screen
     cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
 
