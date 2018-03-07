@@ -14,7 +14,7 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
                 help="max buffer size")
 args = vars(ap.parse_args())
 
-redLower = (0, 50, 50)
+redLower = (0, 50, 70)
 redUpper = (10, 255, 255)
 
 pts = deque(maxlen=args["buffer"])
@@ -44,6 +44,8 @@ meshUWidth = width // meshW
 meshUHeight = height // meshH
 onPinList = [35,37,29,31,33,7,3,11,15,19,21,23]
 offPinList = [36,38,26,32,40,8,5,12,16,18,22,24]
+for pin in onPinList + offPinList:
+    IO.setup(pin, IO.OUT)
 
 onPinDict = {}
 offPinDict = {}
@@ -61,12 +63,7 @@ for pin in offPinList:
 for i,j in zip(onPinList,offPinList):
     onOffDict[i] = j
 
-
-    
 print (onOffDict)
-
-
-
 
 while True:
     # grab the current frame
@@ -120,7 +117,7 @@ while True:
                            (0, 255, 255), 2)
                 cv2.circle(frame, center, 5, (0, 0, 255), -1)
         detectMatrix = [[0]*meshH for i in range(meshW)]
-##        print detectMatrix
+
         for w in range(meshW):
             for h in range(meshH):
                 minX = w * meshUWidth
@@ -132,6 +129,7 @@ while True:
                 if any(check):
                     cv2.circle(frame, ((minX + maxX)/2, (minY + maxY)/2),5, (0,255,0),-1)
                     detectMatrix[h][w] = 1
+        
         toInflate = []
         for i,row in enumerate(detectMatrix):
             for j,cell in enumerate(row):
@@ -140,18 +138,35 @@ while True:
                     for pin in toInflatePins:
                         if pin not in toInflate:
                             toInflate.append(pin)
+        print toInflate
         toDeflate = []
-        for pin in toInflate:
+        for pin in onPinList:
             pinStatus = onPinDict[pin]
-            delta = datetime.datetime.now() - pinStatus[1]
-            if pinStatus[0] == False and delta.seconds > 5:
-                onPinDict[pin][0] = True
-                onPinDict[pin][1] = datetime.datetime.now()
-                inflate(pin,False)
-            if (onOffDict[pin] not in toDeflate):
-                toDeflate.append(onOffDict[pin])
-##        
-            
+            if pin in toInflate:      
+                delta = datetime.datetime.now() - pinStatus[1]
+                if pinStatus[0] == False and delta.seconds < 5:
+                    onPinDict[pin][0] = True
+                    onPinDict[pin][1] = datetime.datetime.now()
+                    inflate(pin,False)
+            else:
+                delta = datetime.datetime.now() - pinStatus[1]
+                if pinStatus[0] == True and delta.seconds >5:
+                    onPinDict[pin][0] = False
+                    onPinDict[pin][1] = datetime.datetime.now()
+                    inflate(pin,True)
+                    toDeflatePin = onOffDict[pin]
+                    defDelta = datetime.datetime.now() - offPinDict[toDeflatePin][1]
+                    if toDeflatePin not in toDeflate:
+                        if offPinDict[toDeflatePin][0] == False and defDelta.seconds > 20:
+                            toDeflate.append(pin)
+                            offPinDict[pin][0] = True
+                            offPinDict[pin][1] = datetime.datetime.now()
+                            inflate(toDeflatePin,False)
+        
+        for pin in offPinDict:
+            delta = datetime.datetime.now() - offPinDict[pin][1]
+            if offPinDict[pin][0] == True and delta.seconds > 20:
+                inflate(pin,True)
 
     pts.appendleft(center)
 
