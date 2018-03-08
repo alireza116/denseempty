@@ -14,8 +14,12 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
                 help="max buffer size")
 args = vars(ap.parse_args())
 
-redLower = (0, 50, 70)
-redUpper = (10, 255, 255)
+redLower = (0, 70, 50)
+redUpper = (2, 255, 255)
+##redLower = (100,150,0)
+##redUpper = (140,255,255)
+##redLower = (5, 0, 50)
+##redUpper = (10, 150, 200)
 
 pts = deque(maxlen=args["buffer"])
 
@@ -33,6 +37,8 @@ height, width, channels = frame.shape
 meshW = 3
 meshH = 3
 
+IO.setmode(IO.BOARD)
+
 def inflate(pin,onOff):
     IO.output(pin,onOff)
     
@@ -42,8 +48,8 @@ def deflate(pin,onOff):
 #width and height of every cell in grid
 meshUWidth = width // meshW
 meshUHeight = height // meshH
-onPinList = [35,37,29,31,33,7,3,11,15,19,21,23]
-offPinList = [36,38,26,32,40,8,5,12,16,18,22,24]
+onPinList = [7, 5, 12, 15, 19, 21, 23, 26, 31, 33, 35, 38]
+offPinList = [8, 3, 11, 16, 18, 22, 24, 29, 32, 40, 36, 37]
 for pin in onPinList + offPinList:
     IO.setup(pin, IO.OUT)
 
@@ -52,9 +58,9 @@ offPinDict = {}
 
 onOffDict = {}
 
-gridOnDict = {"00" : [21,23,11], "01" : [19,21,3], "02": [15,19,7],
-              "10" : [33,21,23], "11" : [31,19,21], "12" : [29,15,19],
-              "20" : [37,33], "21" : [35,37,31], "22" : [35,29]}
+gridOnDict = {"00" : [21,23,12], "01" : [18,21,5], "02": [15,18,7],
+              "10" : [33,21,23], "11" : [31,18,21], "12" : [26,15,18],
+              "20" : [38,33], "21" : [35,38,31], "22" : [35,26]}
 
 for pin in onPinList:
     onPinDict[pin] = [False,datetime.datetime.now()]
@@ -106,6 +112,8 @@ while True:
 
     centroids = []
     # only proceed if at least one contour was found
+    toDeflate = []
+    toInflate = []
     if len(cnts) > 0:
         for c in cnts:
             ((x, y), radius) = cv2.minEnclosingCircle(c)
@@ -130,7 +138,7 @@ while True:
                     cv2.circle(frame, ((minX + maxX)/2, (minY + maxY)/2),5, (0,255,0),-1)
                     detectMatrix[h][w] = 1
         
-        toInflate = []
+        
         for i,row in enumerate(detectMatrix):
             for j,cell in enumerate(row):
                 if cell == 1:
@@ -139,35 +147,37 @@ while True:
                         if pin not in toInflate:
                             toInflate.append(pin)
         print toInflate
-        toDeflate = []
-        for pin in onPinList:
-            pinStatus = onPinDict[pin]
-            if pin in toInflate:      
-                delta = datetime.datetime.now() - pinStatus[1]
-                if pinStatus[0] == False and delta.seconds < 5:
-                    onPinDict[pin][0] = True
-                    onPinDict[pin][1] = datetime.datetime.now()
-                    inflate(pin,False)
-            else:
-                delta = datetime.datetime.now() - pinStatus[1]
-                if pinStatus[0] == True and delta.seconds >5:
-                    onPinDict[pin][0] = False
-                    onPinDict[pin][1] = datetime.datetime.now()
-                    inflate(pin,True)
-                    toDeflatePin = onOffDict[pin]
-                    defDelta = datetime.datetime.now() - offPinDict[toDeflatePin][1]
-                    if toDeflatePin not in toDeflate:
-                        if offPinDict[toDeflatePin][0] == False and defDelta.seconds > 20:
-                            toDeflate.append(pin)
-                            offPinDict[pin][0] = True
-                            offPinDict[pin][1] = datetime.datetime.now()
-                            inflate(toDeflatePin,False)
         
-        for pin in offPinDict:
-            delta = datetime.datetime.now() - offPinDict[pin][1]
-            if offPinDict[pin][0] == True and delta.seconds > 20:
+    for pin in onPinList:
+        pinStatus = onPinDict[pin]
+        if pin in toInflate:      
+            delta = datetime.datetime.now() - pinStatus[1]
+            if pinStatus[0] == False:
+                onPinDict[pin][0] = True
+                onPinDict[pin][1] = datetime.datetime.now()
+                inflate(pin,False)
+        else:
+            delta = datetime.datetime.now() - pinStatus[1]
+            if pinStatus[0] == True and delta.seconds >5:
+                onPinDict[pin][0] = False
+                onPinDict[pin][1] = datetime.datetime.now()
                 inflate(pin,True)
-
+                toDeflatePin = onOffDict[pin]
+                if toDeflatePin not in toDeflate:
+                    toDeflate.append(toDeflatePin)
+    for pin in toDeflate:
+        defDelta = datetime.datetime.now() - offPinDict[pin][1]
+        if offPinDict[pin][0] == False and defDelta.seconds > 10:
+            offPinDict[pin][0] = True
+            offPinDict[pin][1] = datetime.datetime.now()
+            inflate(pin,False)
+        
+    for pin in offPinList:
+        delta = datetime.datetime.now() - offPinDict[pin][1]
+        if offPinDict[pin][0] == True and delta.seconds > 10:
+            offPinDict[pin][0] = False
+            offPinDict[pin][1] = datetime.datetime.now()
+            inflate(pin,True)
     pts.appendleft(center)
 
     cv2.imshow("Frame", frame)
@@ -175,6 +185,8 @@ while True:
 
     # if the 'q' key is pressed, stop the loop
     if key == ord("q"):
+        for pin in offPinList + onPinList:
+            inflate(pin,True)
         break
 
 # cleanup the camera and close any open windows
