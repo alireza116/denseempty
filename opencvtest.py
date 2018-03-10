@@ -14,8 +14,11 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
                 help="max buffer size")
 args = vars(ap.parse_args())
 
-redLower = (0, 70, 50)
+redLower = (0, 50, 50)
 redUpper = (8, 255, 255)
+otherRedLower = (170, 50, 50)
+otherRedUpper = (180, 255, 255)
+
 ##redLower = (100,150,0)
 ##redUpper = (140,255,255)
 ##redLower = (5, 0, 50)
@@ -48,8 +51,8 @@ def deflate(pin,onOff):
 #width and height of every cell in grid
 meshUWidth = width // meshW
 meshUHeight = height // meshH
-onPinList = [7, 5, 12, 15, 19, 21, 23, 26, 31, 33, 35, 38]
-offPinList = [8, 3, 11, 16, 18, 22, 24, 29, 32, 40, 36, 37]
+onPinList = [7, 5, 12, 15, 19, 21, 23, 26, 31, 40, 35, 38]
+offPinList = [8, 3, 11, 16, 18, 22, 24, 29, 32, 33, 36, 37]
 for pin in onPinList + offPinList:
     IO.setup(pin, IO.OUT)
 
@@ -58,9 +61,9 @@ offPinDict = {}
 
 onOffDict = {}
 
-gridOnDict = {"00" : [21,23,12], "01" : [18,21,5], "02": [15,18,7],
-              "10" : [33,21,23], "11" : [31,18,21], "12" : [26,15,18],
-              "20" : [38,33], "21" : [35,38,31], "22" : [35,26]}
+gridOnDict = {"00" : [21,23,12], "01" : [19,21,5], "02": [15,19,7],
+              "10" : [40,21,23], "11" : [31,19,21], "12" : [26,15,19],
+              "20" : [38,40], "21" : [35,38,31], "22" : [35,26]}
 
 for pin in onPinList:
     onPinDict[pin] = [False,datetime.datetime.now()]
@@ -99,7 +102,9 @@ while True:
     # a series of dilations and erosions to remove any small
     # blobs left in the mask
     kernel = np.ones((9,9),np.uint8)
-    mask = cv2.inRange(hsv, redLower, redUpper)
+    mask1 = cv2.inRange(hsv, redLower, redUpper)
+    mask2 = cv2.inRange(hsv, otherRedLower,otherRedUpper)
+    mask = cv2.bitwise_or(mask1,mask2)
     # mask = cv2.erode(mask, None, iterations=2)
     # mask = cv2.dilate(mask, None, iterations=2)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -174,7 +179,7 @@ while True:
         
     for pin in offPinList:
         delta = datetime.datetime.now() - offPinDict[pin][1]
-        if offPinDict[pin][0] == True and delta.seconds > 10:
+        if offPinDict[pin][0] == True and delta.seconds > 15:
             offPinDict[pin][0] = False
             offPinDict[pin][1] = datetime.datetime.now()
             inflate(pin,True)
