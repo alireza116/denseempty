@@ -15,7 +15,7 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
 args = vars(ap.parse_args())
 
 redLower = (0, 70, 50)
-redUpper = (2, 255, 255)
+redUpper = (8, 255, 255)
 ##redLower = (100,150,0)
 ##redUpper = (140,255,255)
 ##redLower = (5, 0, 50)
@@ -167,7 +167,7 @@ while True:
                     toDeflate.append(toDeflatePin)
     for pin in toDeflate:
         defDelta = datetime.datetime.now() - offPinDict[pin][1]
-        if offPinDict[pin][0] == False and defDelta.seconds > 10:
+        if offPinDict[pin][0] == False and defDelta.seconds > 15:
             offPinDict[pin][0] = True
             offPinDict[pin][1] = datetime.datetime.now()
             inflate(pin,False)
