@@ -5,6 +5,7 @@ import imutils
 import cv2
 import datetime
 import RPi.GPIO as IO
+import time
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -14,10 +15,10 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
                 help="max buffer size")
 args = vars(ap.parse_args())
 
-redLower = (0, 50, 50)
-redUpper = (8, 255, 255)
-otherRedLower = (170, 50, 50)
-otherRedUpper = (180, 255, 255)
+redLower = [0, 50, 50]
+redUpper = [4, 255, 255]
+otherRedLower = [175, 50, 50]
+otherRedUpper = [180, 255, 255]
 
 ##redLower = (100,150,0)
 ##redUpper = (140,255,255)
@@ -48,6 +49,8 @@ def inflate(pin,onOff):
 def deflate(pin,onOff):
     IO.output(pin,onOff)
 
+
+
 #width and height of every cell in grid
 meshUWidth = width // meshW
 meshUHeight = height // meshH
@@ -72,8 +75,18 @@ for pin in offPinList:
 for i,j in zip(onPinList,offPinList):
     onOffDict[i] = j
 
-print (onOffDict)
+def allOnAllOff():
+    IO.output(onPinList,False)
+    time.sleep(15)
+    IO.output(onPinList,True)
+    IO.output(offPinList,False)
+    time.sleep(25)
+    IO.output(offPinList,True)
 
+print (onOffDict)
+timeRedNotDetected = datetime.datetime.now()
+for i in allPins:
+    GPIO.output(i,True)
 while True:
     # grab the current frame
     (grabbed, frame) = camera.read()
@@ -102,8 +115,8 @@ while True:
     # a series of dilations and erosions to remove any small
     # blobs left in the mask
     kernel = np.ones((9,9),np.uint8)
-    mask1 = cv2.inRange(hsv, redLower, redUpper)
-    mask2 = cv2.inRange(hsv, otherRedLower,otherRedUpper)
+    mask1 = cv2.inRange(hsv, np.array(redLower), np.array(redUpper))
+    mask2 = cv2.inRange(hsv, np.array(otherRedLower),np.array(otherRedUpper))
     mask = cv2.bitwise_or(mask1,mask2)
     # mask = cv2.erode(mask, None, iterations=2)
     # mask = cv2.dilate(mask, None, iterations=2)
@@ -152,6 +165,12 @@ while True:
                         if pin not in toInflate:
                             toInflate.append(pin)
         print toInflate
+    else:
+        timeNow = datetime.datetime.now()
+        delta = timeNow - timeRedNotDetected
+        if delta.seconds > 50:
+##            allOnAllOff()
+            timeRedNotDetected = datetime.datetime.now()
         
     for pin in onPinList:
         pinStatus = onPinDict[pin]
@@ -193,6 +212,25 @@ while True:
         for pin in offPinList + onPinList:
             inflate(pin,True)
         break
+    if key == ord("h"):
+        print "new red upper"
+        redUpper[0] += 1
+        print redUpper
+    if key == ord("l"):
+        print "new red upper"
+        redUpper[0] -= 1
+        print redUpper
+    if key == ord("n"):
+        print "new other red upper"
+        otherRedLower[0] +=1
+        print otherRedLower
+    if key == ord("m"):
+        print "new other red upper"
+        otherRedLower[0] -=1
+        print otherRedLower
+    if key == ord("s"):
+        allOnAllOff()
+        
 
 # cleanup the camera and close any open windows
 camera.release()

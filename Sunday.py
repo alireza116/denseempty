@@ -12,7 +12,7 @@ allPins = onPinList + offPinList
 for i in allPins:
     GPIO.setup(i, GPIO.OUT)
 
-
+ 
 
 aIn = 7
 aOut = 8
@@ -100,13 +100,10 @@ time.sleep(3)
 
 GPIO.output(bIn,False)
 time.sleep(3)
-
-
-
-
-
-
 """
+
+for i in allPins:
+    GPIO.output(i,True)
 
 #part 1
 #intro walk through on diagonal 
@@ -282,6 +279,7 @@ GPIO.output(offPinList,True)
 
 GPIO.output(onPinList,True)
 GPIO.output(offPinList,True)
+
 
 
 
